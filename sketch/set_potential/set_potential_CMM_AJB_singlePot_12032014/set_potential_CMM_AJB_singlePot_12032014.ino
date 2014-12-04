@@ -14,8 +14,10 @@
  - Using only one digital pot now - removed #2 (Analog 2 & 3)
  - Added ADS1115 library + code
  - Changed digipot cs pin to D7
+ - Fixed issue with digitpot CS pin 
+ - Removed code for 2nd digipot
  
- Last modified: 12/3/14 - Adam Burns - burns7@illinois.edu
+ Last modified: 12/4/14 - Adam Burns - burns7@illinois.edu
  */
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
@@ -23,25 +25,13 @@
 Adafruit_ADS1115 ads;
 #include <SPI.h>
 int power1state = LOW;
-int power2state = LOW;
 boolean offState = true;
 const int Power1 = 6; // power control for MCP4161 #1 to D6
-const int Power2 = 5; // power control for MCP4161 #2 to D5
 unsigned long offDuration = 300000; // off mode for 30 mins (1,800,000ms)
 
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
-int csPin2 = 3; //Chip select D3 for digital pot #2
-int read1;
-int read2;
-int read3;
-int read4;
-int read5;
-int trans_sig1 = 0;
-int trans_sig2 = 0;
+int trans_sig1 = 0; // Value sent to digipot
 int cnt = 0;
-double current2=0; 
-double vol_nor2=0;
-double cell_vol2=0;
 double current=0; 
 double vol_nor=0;
 double cell_vol=0;
@@ -55,20 +45,18 @@ void setup()
   SPI.begin();
   ads.begin();
   pinMode(csPin1, OUTPUT);
-  pinMode(csPin2, OUTPUT);
   pinMode(Power1, OUTPUT);
-  pinMode(Power2, OUTPUT);
+  digitalWrite(csPin1, HIGH);
   digitalWrite(Power1, LOW);
-  digitalWrite(Power2, LOW);
-  
+  delay(200);
   
   // Reset digipot to 0
   digitalWrite(Power1, HIGH);
   delay(200);
-  digitalWrite(pin, LOW);
+  digitalWrite(csPin1, LOW);
   SPI.transfer(0);
   SPI.transfer(0);
-  digitalWrite(pin,HIGH);
+  digitalWrite(csPin1,HIGH);
   delay(200);
   digitalWrite(Power1, LOW);
   
@@ -108,20 +96,18 @@ void loop()
     if((currentMillis>offDuration) && (offState==true))
     {
       power1state=HIGH;
-      power2state=HIGH;
       offState=false;
       digitalWrite(Power1,power1state);
-      digitalWrite(Power2,power2state);
-      delay(150); //allow current to stabilize
+      delay(150); // delay for stabilization
     }
   }
 
   float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  //int16_t vol;
+ 
 
   double vol = ads.readADC_Differential_0_1();
   vol=vol*multiplier; //reading in mV
-  double current = ((vol)/(98.2));
+  double current = ((vol)/(98.2)); // ohm law
 
   double vol_nor = ads.readADC_Differential_2_3();
   vol_nor= (vol_nor * multiplier)/1000;
@@ -160,9 +146,10 @@ void loop()
   Serial.print(",  annode potential:");
   Serial.print(vol_nor, numOfDigits);
   Serial.print(",  Cell vol:");
-  Serial.println(cell_vol, numOfDigits);
+  Serial.print(cell_vol, numOfDigits);
   Serial.print(",  vol_drop:");
-  Serial.println(vol, numOfDigits);
+  Serial.print(vol, numOfDigits);
+  Serial.println();
 #endif
 
 
@@ -210,8 +197,7 @@ void loop()
   }
 
   delay(10000);
-  //  digitalWrite(power1LED,LOW);
-  //  digitalWrite(power2LED,LOW);
+
 }
 
 

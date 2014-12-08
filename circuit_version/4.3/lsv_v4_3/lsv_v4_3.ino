@@ -3,20 +3,20 @@ lsv_sep_22.ino
  
  measures current while increasing anode potential at a set rate (1mV/s)
  
- Start with both off for 30 minutes, then keep the first anode off while 
- the LSV runs on the second anode
+ Start in open circuit mode for 30 minutes, then run LSV 
  
  ==================================================
  ***ONLY WORKS ON CIRCUIT V4.3********
-  ==================================================
-  
+ ==================================================
+ 
  Changes:
  - Moved digital pot communication to end of loop
  - Added ADS1115 library + code
  - Changed SPI CS pin for digipot to D7
  - MOSFET between cathod + digipot & GND - pin D6
+ - Read from the ADC after changing the digipot trans_sig
  
- Last modified: 12/3/14 - Adam Burns - burns7@illinois.edu
+ Last modified: 12/8/14 - Adam Burns - burns7@illinois.edu
  */
 
 #include <SPI.h>
@@ -46,7 +46,7 @@ int lsv_finished = 0;
 
 double target_value;
 //double tol = 0.001;
-#define DEBUG 1 // set to 1 to print debug data to serial monitor
+#define DEBUG 0 // set to 1 to print debug data to serial monitor
 
 
 void setup()
@@ -75,20 +75,23 @@ void setup()
   pinMode(Power1, OUTPUT);
   pinMode(Power2, OUTPUT);
   digitalWrite(Power1,HIGH);
-  delay(200);
   digitalWrite(Power2, LOW);
+  delay(200);
 
+  // Reset digipot to 0
   digitalWrite(csPin1, LOW);
   SPI.transfer(0);
   SPI.transfer(0);
   digitalWrite(csPin1, HIGH);
-delay(200);
-digitalWrite(csPin1, LOW);
+  delay(200);
+
+  // Setting digipot to 0 again in case 1st attempt failed
+  digitalWrite(csPin1, LOW);
   SPI.transfer(0);
   SPI.transfer(0);
   digitalWrite(csPin1, HIGH);
   delay(200);
-digitalWrite(Power1, LOW);
+  digitalWrite(Power1, LOW);
   //analogReference(INTERNAL);
   //delay(offDuration); // stay open for 30 minutes
   //digitalWrite(Power2, HIGH); // power on anode #2
@@ -111,23 +114,9 @@ void loop()
   }
 
   float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-
-
-
-  //vol_before_resistor = analogRead(A2);
-  //vol_after_resistor = analogRead(A3);
-  //vol_reference = analogRead(A4);
-
-  double vol=ads.readADC_Differential_0_1();
-  vol=vol * multiplier;
-
-  double current = ((vol)/(98.2));
-
-  double vol_nor = ads.readADC_Differential_2_3();
-  vol_nor= (vol_nor * multiplier)/1000;
-
-  double cell_vol = ads.readADC_SingleEnded(1);
-  cell_vol=(cell_vol * multiplier)/1000; 
+  double vol_nor;
+  double current;
+  double cell_vol;
 
   if (cnt==0){
     target_value=vol_nor;
@@ -187,6 +176,17 @@ void loop()
     }
   }
 
+  double vol=ads.readADC_Differential_0_1();
+  vol=vol * multiplier;
+
+  current = ((vol)/(98.2));
+
+  vol_nor = ads.readADC_Differential_2_3();
+  vol_nor= (vol_nor * multiplier)/1000;
+
+  cell_vol = ads.readADC_SingleEnded(1);
+  cell_vol=(cell_vol * multiplier)/1000; 
+
 #if DEBUG
   Serial.println();
   Serial.print("trans_sig: ");
@@ -206,12 +206,5 @@ void loop()
 
   delay(1000);
 }
-
-
-
-
-
-
-
 
 

@@ -346,17 +346,18 @@ void loop()
       }
 
     }
+    Serial.println("  ");
+    Serial.println(" CV completed ");
 
+    //halt the code
+    while(true);
   }
 
-  Serial.println("  ");
-  Serial.println(" CV completed ");
 
-  //halt the code
-  while(true);
   delay(1000);
 
 }
+
 
 
 

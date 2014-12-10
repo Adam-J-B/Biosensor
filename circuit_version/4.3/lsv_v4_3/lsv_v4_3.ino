@@ -162,7 +162,7 @@ void loop()
             SPI.transfer(0);
             SPI.transfer(trans_sig);
             digitalWrite(csPin1, HIGH);
-
+            delay(100); //allow voltage to stabilize
           }
         }
       }
@@ -206,5 +206,6 @@ void loop()
 
   delay(1000);
 }
+
 
 

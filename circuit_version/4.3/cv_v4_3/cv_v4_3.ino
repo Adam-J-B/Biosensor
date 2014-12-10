@@ -34,7 +34,6 @@ const int Power1 = 6; // power control for MCP4161 #1 to D6
 const int Power2 = 5; // power control for MCP4161 #2 to D5
 unsigned long offDuration = 300000; // off mode for 30 mins (1,800,000ms)
 int numOfDigits = 5;
-int cycles = 0; // current number of cycles 
 int netCycles=1; // target number of cycles
 int delayInterval = 1000; // rate of sweep (1000=1s -> 1mv/1s)
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
@@ -166,6 +165,7 @@ void loop()
 
   cell_vol = ads.readADC_SingleEnded(1);
   cell_vol=(cell_vol * multiplier)/1000; 
+
 #if DEBUG
   Serial.println();
   Serial.print("trans_sig: ");
@@ -215,7 +215,7 @@ void loop()
               SPI.transfer(0);
               SPI.transfer(trans_sig);
               digitalWrite(csPin1, HIGH);
-
+              delay(100); // allow voltage to stabilize before reading
             }
           }
         }
@@ -265,7 +265,7 @@ void loop()
             SPI.transfer(0);
             SPI.transfer(trans_sig);
             digitalWrite(csPin1, HIGH);
-
+            delay(100); // allow voltage to stabilize
           }
         }
 
@@ -316,7 +316,7 @@ void loop()
               SPI.transfer(0);
               SPI.transfer(trans_sig);
               digitalWrite(csPin1, HIGH);
-
+              delay(100); // allow voltage to stabilize
             }
           }
         }
@@ -357,6 +357,7 @@ void loop()
   delay(1000);
 
 }
+
 
 
 

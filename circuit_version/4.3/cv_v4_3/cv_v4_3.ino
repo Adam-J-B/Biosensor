@@ -34,7 +34,7 @@ const int Power1 = 6; // power control for MCP4161 #1 to D6
 const int Power2 = 5; // power control for MCP4161 #2 to D5
 unsigned long offDuration = 300000; // off mode for 30 mins (1,800,000ms)
 int numOfDigits = 5;
-int netCycles=1; // target number of cycles
+int netCycles=2; // target number of cycles
 int delayInterval = 1000; // rate of sweep (1000=1s -> 1mv/1s)
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int csPin2 = 3; //Chip select D3 for digital pot #2
@@ -124,14 +124,7 @@ void loop()
 
   if((offState==false) && (setPotential==true) && (StablePotential<=5))
   {
-    if (vol_nor < -0.352) trans_sig ++;
-    else if (vol_nor > -0.342 && trans_sig >0) trans_sig --;
 
-    digitalWrite(csPin1, LOW);
-    SPI.transfer(0);
-    SPI.transfer(trans_sig);
-    digitalWrite(csPin1, HIGH);
-    delay(500); 
 
     double vol=ads.readADC_Differential_0_1();
     vol=vol * multiplier;
@@ -143,7 +136,16 @@ void loop()
 
     cell_vol = ads.readADC_SingleEnded(1);
     cell_vol=(cell_vol * multiplier)/1000; 
+    
+    if (vol_nor < -0.352) trans_sig ++;
+    else if (vol_nor > -0.342 && trans_sig >0) trans_sig --;
 
+    digitalWrite(csPin1, LOW);
+    SPI.transfer(0);
+    SPI.transfer(trans_sig);
+    digitalWrite(csPin1, HIGH);
+    delay(500);
+    
     if((vol_nor>=-0.36) && (vol_nor<= -0.33)){
       StablePotential++;
     }
@@ -357,6 +359,8 @@ void loop()
   delay(1000);
 
 }
+
+
 
 
 

@@ -1,6 +1,3 @@
-
-
-
 /*
 AtlasSciProbes_temp.ino
  

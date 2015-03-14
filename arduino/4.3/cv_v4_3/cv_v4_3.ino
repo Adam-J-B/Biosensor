@@ -1,22 +1,25 @@
 /*
  cv_v4_3.ino
  
+ Version: 1.0.1
  
- 
- measures current while cycling the anode potential at a set rate
- 
- 
- Start with both off for 30 minutes, then run CV using initial potential
+ Measures current while cycling the anode potential at a set rate
+   - Start with both off for 30 minutes, then run CV using initial potential
  as starting & ending point (per cycle)
+ 
  
  ==================================================
  ***ONLY WORKS ON CIRCUIT V4.3********
  ==================================================
  
- Changes:
+ Last modified: March 14, 2015
+  
+ 1.0.1 Changes:
+  - Refactored vol_nor to anodePotential
  
+
  
- Last modified: 12/8/14 - Adam Burns - burns7@illinois.edu
+ Adam Burns - burns7@illinois.edu
  */
 
 #include <SPI.h>
@@ -102,7 +105,13 @@ void setup()
 
 void loop()
 {
-
+  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
+  double anondePotential;
+  double last_anode;
+  double current;
+  double cell_vol;
+  
+  
   if(offState==true){    
     unsigned long currentMillis = millis();
     if((currentMillis>offDuration) && (offState==true))
@@ -116,11 +125,7 @@ void loop()
       delay(150); //allow current to stabilize
     }
   }
-  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  double vol_nor;
-  double last_anode;
-  double current;
-  double cell_vol;
+
 
   if((offState==false) && (setPotential==true) && (StablePotential<=5))
   {
@@ -131,14 +136,14 @@ void loop()
 
     current = ((vol)/(98.2));
 
-    vol_nor = ads.readADC_Differential_2_3();
-    vol_nor= (vol_nor * multiplier)/1000;
+    anondePotential = ads.readADC_Differential_2_3();
+    anondePotential= (anondePotential * multiplier)/1000;
 
     cell_vol = ads.readADC_SingleEnded(1);
     cell_vol=(cell_vol * multiplier)/1000; 
     
-    if (vol_nor < -0.352) trans_sig ++;
-    else if (vol_nor > -0.342 && trans_sig >0) trans_sig --;
+    if (anondePotential < -0.352) trans_sig ++;
+    else if (anondePotential > -0.342 && trans_sig >0) trans_sig --;
 
     digitalWrite(csPin1, LOW);
     SPI.transfer(0);
@@ -146,7 +151,7 @@ void loop()
     digitalWrite(csPin1, HIGH);
     delay(500);
     
-    if((vol_nor>=-0.36) && (vol_nor<= -0.33)){
+    if((anondePotential>=-0.36) && (anondePotential<= -0.33)){
       StablePotential++;
     }
 
@@ -162,8 +167,8 @@ void loop()
 
   current = ((vol)/(98.2));
 
-  vol_nor = ads.readADC_Differential_2_3();
-  vol_nor= (vol_nor * multiplier)/1000;
+  anondePotential = ads.readADC_Differential_2_3();
+  anondePotential= (anondePotential * multiplier)/1000;
 
   cell_vol = ads.readADC_SingleEnded(1);
   cell_vol=(cell_vol * multiplier)/1000; 
@@ -175,7 +180,7 @@ void loop()
   Serial.print(",  current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");
-  Serial.print(vol_nor, numOfDigits);
+  Serial.print(anondePotential, numOfDigits);
   Serial.print(",  Cell vol:");
   Serial.print(cell_vol, numOfDigits);
   Serial.print(", Cnt: ");
@@ -185,14 +190,14 @@ void loop()
 #endif
 
   if (cnt==0){
-    target_value=vol_nor;
-    startingPotential=vol_nor;
+    target_value=anondePotential;
+    startingPotential=anondePotential;
   }
 
   //========== begin new code ============
 
   if((offState==false)&&(setPotential==false)){
-    startingPotential=vol_nor;
+    startingPotential=anondePotential;
 
     for(int i=0; i<netCycles; i++){
 
@@ -203,11 +208,11 @@ void loop()
         {
           target_value += 0.002;
         }
-        if (cnt < 10) target_value = vol_nor; 
+        if (cnt < 10) target_value = anondePotential; 
         else {
           if (cnt % 1 ==0)
           {
-            if (vol_nor < target_value)
+            if (anondePotential < target_value)
             {
               trans_sig ++;
               if(trans_sig > 255){ 
@@ -226,8 +231,8 @@ void loop()
 
         current = ((vol)/(98.2));
 
-        vol_nor = ads.readADC_Differential_2_3();
-        vol_nor= (vol_nor * multiplier)/1000;
+        anondePotential = ads.readADC_Differential_2_3();
+        anondePotential= (anondePotential * multiplier)/1000;
 
         cell_vol = ads.readADC_SingleEnded(1);
         cell_vol=(cell_vol * multiplier)/1000; 
@@ -236,7 +241,7 @@ void loop()
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(vol_nor, 10);
+        Serial.print(anondePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");
@@ -257,7 +262,7 @@ void loop()
         }
         if (cnt % 1 ==0)
         {
-          if (vol_nor > target_value)
+          if (anondePotential > target_value)
           {
             trans_sig --;
             if(trans_sig <=0 ){ 
@@ -276,8 +281,8 @@ void loop()
 
         current = ((vol)/(98.2));
 
-        vol_nor = ads.readADC_Differential_2_3();
-        vol_nor= (vol_nor * multiplier)/1000;
+        anondePotential = ads.readADC_Differential_2_3();
+        anondePotential= (anondePotential * multiplier)/1000;
 
         cell_vol = ads.readADC_SingleEnded(1);
         cell_vol=(cell_vol * multiplier)/1000; 
@@ -286,7 +291,7 @@ void loop()
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(vol_nor, 10);
+        Serial.print(anondePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");
@@ -304,11 +309,11 @@ void loop()
         {
           target_value += 0.002;
         }
-        if (cnt < 10) target_value = vol_nor; 
+        if (cnt < 10) target_value = anondePotential; 
         else {
           if (cnt % 1 ==0)
           {
-            if (vol_nor < target_value)
+            if (anondePotential < target_value)
             {
               trans_sig ++;
               if(trans_sig > 255){ 
@@ -328,8 +333,8 @@ void loop()
 
         current = ((vol)/(98.2));
 
-        vol_nor = ads.readADC_Differential_2_3();
-        vol_nor= (vol_nor * multiplier)/1000;
+        anondePotential = ads.readADC_Differential_2_3();
+        anondePotential= (anondePotential * multiplier)/1000;
 
         cell_vol = ads.readADC_SingleEnded(1);
         cell_vol=(cell_vol * multiplier)/1000; 
@@ -338,7 +343,7 @@ void loop()
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(vol_nor, 10);
+        Serial.print(anondePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");
@@ -359,10 +364,3 @@ void loop()
   delay(1000);
 
 }
-
-
-
-
-
-
-

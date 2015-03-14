@@ -1,22 +1,30 @@
 /*
-lsv_sep_22.ino
+ lsv_v4_3.ino
+
+ Version: 1.0.1
+
+ Measures current while increasing anode potential at a set rate (1mV/s)
  
- measures current while increasing anode potential at a set rate (1mV/s)
- 
- Start in open circuit mode for 30 minutes, then run LSV 
  
  ==================================================
  ***ONLY WORKS ON CIRCUIT V4.3********
  ==================================================
  
- Changes:
+ Last modified: March 14, 2015
+ 
+ 1.0.0 Changes:
  - Moved digital pot communication to end of loop
  - Added ADS1115 library + code
  - Changed SPI CS pin for digipot to D7
  - MOSFET between cathod + digipot & GND - pin D6
  - Read from the ADC after changing the digipot trans_sig
  
- Last modified: 12/8/14 - Adam Burns - burns7@illinois.edu
+ 1.0.1 Changes:
+  - Refactored anodePotential to anodePotential
+  - Moved ADC readings to end of loop after delay (Issue #9)
+  
+  
+ Adam Burns - burns7@illinois.edu
  */
 
 #include <SPI.h>
@@ -99,6 +107,13 @@ void setup()
 
 void loop()
 {
+  
+  
+  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
+  double anodePotential;
+  double current;
+  double cell_vol;
+
 
   if(offState==true){    
     unsigned long currentMillis = millis();
@@ -113,28 +128,21 @@ void loop()
     }
   }
 
-  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  double vol_nor;
-  double current;
-  double cell_vol;
-
   if (cnt==0){
-    target_value=vol_nor;
+    target_value=anodePotential;
   }
+  
+  
   Serial.print(trans_sig);
   Serial.print("      ");
   Serial.print(current, 10);
   Serial.print("  ");
-  Serial.print(vol_nor, 10);
+  Serial.print(anodePotential, 10);
   Serial.print("  ");
   Serial.print(cell_vol, 10);
   Serial.println("  ");
 
 
-  //double vol = (vol_before_resistor - vol_after_resistor) * 1.0 /1023 * 1.1;  //1.1V reference
-  //double current = vol / resistor * 1000;      //Use micro A
-  //double vol_nor = (vol_before_resistor - vol_reference) * 1.0 / 1023 * 1.1;
-  //double cell_vol = vol_before_resistor * 1.0 / 1023 * 1.1;
   if(offState==false){
     cnt ++;
     if (cnt % 2 == 0 && cnt != 0) 
@@ -148,15 +156,16 @@ void loop()
 
     if (lsv_finished == 0)
     {
-      if (cnt < 10) target_value = vol_nor; 
+      if (cnt < 10) target_value = anodePotential; 
       else {
         if (cnt % 1 ==0)
         {
-          if (vol_nor < target_value)
+          if (anodePotential < target_value)
           {
             trans_sig ++;
             if(trans_sig > 255){ 
-              trans_sig = 255; 
+              trans_sig = 255;
+             Serial.println(" ERROR: Digipot exceeding max value (255)");
             }
             digitalWrite(csPin1, LOW);
             SPI.transfer(0);
@@ -176,13 +185,17 @@ void loop()
     }
   }
 
+
+
+  delay(1000);
+
   double vol=ads.readADC_Differential_0_1();
   vol=vol * multiplier;
 
   current = ((vol)/(98.2));
 
-  vol_nor = ads.readADC_Differential_2_3();
-  vol_nor= (vol_nor * multiplier)/1000;
+  anodePotential = ads.readADC_Differential_2_3();
+  anodePotential= (anodePotential * multiplier)/1000;
 
   cell_vol = ads.readADC_SingleEnded(1);
   cell_vol=(cell_vol * multiplier)/1000; 
@@ -194,7 +207,7 @@ void loop()
   Serial.print(",  current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");
-  Serial.print(vol_nor, numOfDigits);
+  Serial.print(anodePotential, numOfDigits);
   Serial.print(",  Cell vol:");
   Serial.print(cell_vol, numOfDigits);
   Serial.print(", Cnt: ");
@@ -203,9 +216,4 @@ void loop()
   Serial.println(target_value, numOfDigits); 
 #endif
 
-
-  delay(1000);
 }
-
-
-

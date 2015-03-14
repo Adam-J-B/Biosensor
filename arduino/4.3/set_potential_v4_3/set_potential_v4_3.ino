@@ -1,7 +1,10 @@
 /*
  set_potential_v4_3.ino
  
+ Version: 1.0.1
+ 
  Measures current while holding the anode potential close to a specified value
+ 
  
  =============================================================
  ***** ONLY WORKS WITH CIRCUIT VERSION 4.3 **********
@@ -10,14 +13,21 @@
  30 minutes in open circui mode . 
  During off mode, log all of the same data as the other part of the sketch.
  
- Changes:
+ Last modified: March 14, 2015
+ 
+ 
+ 1.0.0 Changes:
  - Using only one digital pot now - removed #2 (Analog 2 & 3)
  - Added ADS1115 library + code
  - Changed digipot cs pin to D7
  - Fixed issue with digitpot CS pin 
  - Removed code for 2nd digipot
  
- Last modified: 12/8/14 - Adam Burns - burns7@illinois.edu
+  1.0.1 Changes:
+  - Refactored anodePotential to anodePotential
+ 
+ 
+ Adam Burns - burns7@illinois.edu
  */
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
@@ -33,7 +43,7 @@ int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int trans_sig = 0; // Value sent to digipot
 int cnt = 0;
 double current=0; 
-double vol_nor=0;
+double anodePotential=0;
 double cell_vol=0;
 int numOfDigits = 5;
 
@@ -84,8 +94,7 @@ void setup()
   // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
   //
   //ADC Range: +/- 6.144V (1 bit = 0.1875mV)
-  //
-  //analogReference(INTERNAL);
+
 }
 
 void setPot(int pin, int value)//function currently unused
@@ -99,6 +108,13 @@ void setPot(int pin, int value)//function currently unused
 
 void loop()
 {
+  
+  
+  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
+  double anodePotential;
+  double current;
+  double cell_vol;
+  
   cnt ++;
 
   if(offState==true){
@@ -112,27 +128,10 @@ void loop()
     }
   }
 
-  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  double vol_nor;
-  double current;
-  double cell_vol;
 
-
-
-  /*-------- changed to using ads1115 --------------------
-   read1 = analogRead(A0);
-   delay(7);
-   read2 = analogRead(A1);
-   delay(7);
-   read5 = analogRead(A4);
-   double vol = (read1 - read2) * 1.0 /1023 * 1.1;
-   double current = vol / 97 * 1000; //Ohm's Law to calculate current based on drop across 97 ohm resistor
-   double vol_nor = (read1 - read5) * 1.0 / 1023 * 1.1; // calculate anode potential (A0) vs reference electrode (A4)
-   double cell_vol = read1 * 1.0 / 1023 * 1.1;
-   */
   if(offState==false){
-    if (vol_nor < -0.352) trans_sig ++;
-    else if (vol_nor > -0.342 && trans_sig >0) trans_sig --;
+    if (anodePotential < -0.352) trans_sig ++;
+    else if (anodePotential > -0.342 && trans_sig >0) trans_sig --;
   }
 
   digitalWrite(csPin1, LOW);
@@ -147,8 +146,8 @@ void loop()
   vol=vol*multiplier; //reading in mV
   current = ((vol)/(98.2)); // ohm law
 
-  vol_nor = ads.readADC_Differential_2_3();
-  vol_nor= (vol_nor * multiplier)/1000;
+  anodePotential = ads.readADC_Differential_2_3();
+  anodePotential= (anodePotential * multiplier)/1000;
 
   cell_vol = ads.readADC_SingleEnded(1);
   cell_vol=(cell_vol * multiplier)/1000; 
@@ -162,7 +161,7 @@ void loop()
   Serial.print("current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");
-  Serial.print(vol_nor, numOfDigits);
+  Serial.print(anodePotential, numOfDigits);
   Serial.print(",  Cell vol:");
   Serial.print(cell_vol, numOfDigits);
   Serial.print(",  vol_drop:");
@@ -171,65 +170,17 @@ void loop()
 #endif
 
 
-  /*--------------- only using one digital pot -----------------
-   //setPot(csPin2, trans_sig2); // set pot #2
-   delay(200); // let the state change stabilize
-   read3 = analogRead(A2);
-   delay(7);
-   read4 = analogRead(A3);
-   delay(7);
-   read5 = analogRead(A4);
-   double vol_nor2 = (read3 - read5) * 1.0 / 1023 * 1.1;
-   double vol2 = (read3 - read4) * 1.0 /1023 * 1.1;
-   double current2 = vol2 / 97 * 1000;
-   double cell_vol2 = read3 * 1.0 / 1023 * 1.1;
-   if (vol_nor2 < -0.352) trans_sig2 ++;
-   else if (vol_nor2 > -0.342 && trans_sig2 >0) trans_sig2 --;
-   
-   digitalWrite(csPin2, LOW);
-   SPI.transfer(0);
-   SPI.transfer(trans_sig2);
-   digitalWrite(csPin2, HIGH);  //-- moved to setPot function - 11/5/14 - AJB
-   
-   #if DEBUG
-   Serial.println();
-   Serial.print("trans_sig2: ");
-   Serial.println(trans_sig2);
-   #endif
-   -----------------------------------------------------*/
-
   if (cnt == 6){
-    //Printing
+    // Print ADC readings to serial momnitor
     cnt = 0;
     Serial.print(current, numOfDigits);
     Serial.print("  ");
-    //Serial.print(current2, numOfDigits);
-    //Serial.print("  ");
-    Serial.print(vol_nor, numOfDigits);
+    Serial.print(anodePotential, numOfDigits);
     Serial.print("  ");
-    //Serial.print(vol_nor2, numOfDigits);
-    // Serial.print("  ");
     Serial.println(cell_vol, numOfDigits);
-    //Serial.print("  ");
-    //Serial.println(cell_vol2, numOfDigits);
+
   }
 
   delay(10000);
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

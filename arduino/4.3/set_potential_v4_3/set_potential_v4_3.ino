@@ -1,7 +1,7 @@
 /*
  set_potential_v4_3.ino
  
- Version: 1.0.1
+ Version: 1.0.2
  
  Measures current while holding the anode potential close to a specified value
  
@@ -13,7 +13,7 @@
  30 minutes in open circui mode . 
  During off mode, log all of the same data as the other part of the sketch.
  
- Last modified: March 14, 2015
+ Last modified: March 17, 2015
  
  
  1.0.0 Changes:
@@ -25,10 +25,13 @@
  
   1.0.1 Changes:
   - Refactored anodePotential to anodePotential
- 
+
+  1.0.2 Changes:
+  - Added comments 
  
  Adam Burns - burns7@illinois.edu
  */
+ 
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 
@@ -49,11 +52,19 @@ int numOfDigits = 5;
 
 #define DEBUG 0 // set to 1 to print debug data to serial monitor
 
+
+/*#############################################################################
+##############################  Setup Function  ###############################
+#############################################################################*/
 void setup()
 {
   Serial.begin(9600);
   SPI.begin();
+  
+// ==================== ADC Initilization =========================
   ads.begin();
+  ads.setGain(GAIN_ONE); // 1x gain,  +/- 4.096V, 1 bit = 0.125mV
+  
   pinMode(csPin1, OUTPUT);
   pinMode(Power1, OUTPUT);
   digitalWrite(Power1, LOW);
@@ -80,22 +91,12 @@ void setup()
   digitalWrite(Power1, LOW);
   delay(200);
 
-  // The ADC input range (or gain) can be changed via the following
-  // functions, but be careful never to exceed VDD +0.3V max, or to
-  // exceed the upper and lower limits if you adjust the input range!
-  // Setting these values incorrectly may destroy your ADC!
-  //                                                                ADS1015  ADS1115
-  //                                                                -------  -------
-  // ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
-  // ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
-  // ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
-  // ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.25mV   0.015625mV
-  // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
-  //
-  //ADC Range: +/- 6.144V (1 bit = 0.1875mV)
+
+  
+
 
 }
+/*######################### end setup function ##############################*/
 
 void setPot(int pin, int value)//function currently unused
 {
@@ -106,6 +107,9 @@ void setPot(int pin, int value)//function currently unused
 }
 
 
+/*#############################################################################
+############################ Loop Function ####################################
+#############################################################################*/
 void loop()
 {
   
@@ -114,6 +118,7 @@ void loop()
   double anodePotential;
   double current;
   double cell_vol;
+  double vol;
   
   cnt ++;
 
@@ -142,18 +147,19 @@ void loop()
 
 
 
-  double vol = ads.readADC_Differential_0_1();
-  vol=vol*multiplier; //reading in mV
-  current = ((vol)/(98.2)); // ohm law
 
-  anodePotential = ads.readADC_Differential_2_3();
-  anodePotential= (anodePotential * multiplier)/1000;
-
-  cell_vol = ads.readADC_SingleEnded(1);
-  cell_vol=(cell_vol * multiplier)/1000; 
-
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+vol = (ads.readADC_Differential_0_1())*multiplier;  // Voltage reading
+current = ((vol)/(98.2));  // ohm's law
+anodePotential = ((ads.readADC_Differential_2_3())*multiplier)/1000;
+cell_vol = ((ads.readADC_SingleEnded(1))*multiplier)/1000;
 
 
+/* =====================================================
+===================== Diagnostic =======================
+======================================================*/
 #if DEBUG
   Serial.println();
   Serial.print("trans_sig: ");

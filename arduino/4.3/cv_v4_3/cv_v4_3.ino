@@ -1,7 +1,7 @@
 /*
  cv_v4_3.ino
  
- Version: 1.0.1
+ Version: 1.0.2
  
  Measures current while cycling the anode potential at a set rate
    - Start with both off for 30 minutes, then run CV using initial potential
@@ -12,10 +12,13 @@
  ***ONLY WORKS ON CIRCUIT V4.3********
  ==================================================
  
- Last modified: March 14, 2015
+ Last modified: March 17, 2015
   
  1.0.1 Changes:
   - Refactored vol_nor to anodePotential
+  
+ 1.0.2 Changes:
+  - Added comments
  
 
  
@@ -41,11 +44,7 @@ int netCycles=2; // target number of cycles
 int delayInterval = 1000; // rate of sweep (1000=1s -> 1mv/1s)
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int csPin2 = 3; //Chip select D3 for digital pot #2
-/*
-int vol_before_resistor; //Analog Pin 2
- int vol_after_resistor;  //Analog Pin 3
- 
- int vol_reference;       //Analog Pin 4 *///no longer used
+
 int trans_sig = 0;
 int cnt = 0;
 int resistor = 98.2; // R2 resistance in Ohms
@@ -57,25 +56,18 @@ double startingPotential=0;
 #define DEBUG 0 // set to 1 to print debug data to serial monitor
 
 
+/*#############################################################################
+##############################  Setup Function  ###############################
+#############################################################################*/
 void setup()
 {
   Serial.begin(9600);
   SPI.begin(); //Init SPI
+  
+// ==================== ADC Initilization =========================
   ads.begin();
+  ads.setGain(GAIN_ONE); // 1x gain,  +/- 4.096V, 1 bit = 0.125mV
 
-  // The ADC input range (or gain) can be changed via the following
-  // functions, but be careful never to exceed VDD +0.3V max, or to
-  // exceed the upper and lower limits if you adjust the input range!
-  // Setting these values incorrectly may destroy your ADC!
-  //                                                                ADS1015  ADS1115
-  //                                                                -------  -------
-  // ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
-  // ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
-  // ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
-  // ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.25mV   0.015625mV
-  // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
-  //
 
   pinMode(csPin1, OUTPUT);
   pinMode(csPin2, OUTPUT);
@@ -102,14 +94,20 @@ void setup()
   digitalWrite(Power1, LOW);
 
 }
+/*######################### end setup function ##############################*/
 
+
+/*#############################################################################
+############################ Loop Function ####################################
+#############################################################################*/
 void loop()
 {
   float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  double anondePotential;
+  double anodePotential;
   double last_anode;
   double current;
   double cell_vol;
+  double vol;
   
   
   if(offState==true){    
@@ -130,20 +128,16 @@ void loop()
   if((offState==false) && (setPotential==true) && (StablePotential<=5))
   {
 
-
-    double vol=ads.readADC_Differential_0_1();
-    vol=vol * multiplier;
-
-    current = ((vol)/(98.2));
-
-    anondePotential = ads.readADC_Differential_2_3();
-    anondePotential= (anondePotential * multiplier)/1000;
-
-    cell_vol = ads.readADC_SingleEnded(1);
-    cell_vol=(cell_vol * multiplier)/1000; 
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
+  current = ((vol) / (98.2)); // ohm's law
+  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
+  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
     
-    if (anondePotential < -0.352) trans_sig ++;
-    else if (anondePotential > -0.342 && trans_sig >0) trans_sig --;
+    if (anodePotential < -0.352) trans_sig ++;
+    else if (anodePotential > -0.342 && trans_sig >0) trans_sig --;
 
     digitalWrite(csPin1, LOW);
     SPI.transfer(0);
@@ -151,7 +145,7 @@ void loop()
     digitalWrite(csPin1, HIGH);
     delay(500);
     
-    if((anondePotential>=-0.36) && (anondePotential<= -0.33)){
+    if((anodePotential>=-0.36) && (anodePotential<= -0.33)){
       StablePotential++;
     }
 
@@ -161,17 +155,13 @@ void loop()
     setPotential=false;
   }
 
-
-  double vol=ads.readADC_Differential_0_1();
-  vol=vol * multiplier;
-
-  current = ((vol)/(98.2));
-
-  anondePotential = ads.readADC_Differential_2_3();
-  anondePotential= (anondePotential * multiplier)/1000;
-
-  cell_vol = ads.readADC_SingleEnded(1);
-  cell_vol=(cell_vol * multiplier)/1000; 
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
+  current = ((vol) / (98.2)); // ohm's law
+  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
+  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
 
 #if DEBUG
   Serial.println();
@@ -180,7 +170,7 @@ void loop()
   Serial.print(",  current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");
-  Serial.print(anondePotential, numOfDigits);
+  Serial.print(anodePotential, numOfDigits);
   Serial.print(",  Cell vol:");
   Serial.print(cell_vol, numOfDigits);
   Serial.print(", Cnt: ");
@@ -190,14 +180,14 @@ void loop()
 #endif
 
   if (cnt==0){
-    target_value=anondePotential;
-    startingPotential=anondePotential;
+    target_value=anodePotential;
+    startingPotential=anodePotential;
   }
 
   //========== begin new code ============
 
   if((offState==false)&&(setPotential==false)){
-    startingPotential=anondePotential;
+    startingPotential=anodePotential;
 
     for(int i=0; i<netCycles; i++){
 
@@ -208,11 +198,11 @@ void loop()
         {
           target_value += 0.002;
         }
-        if (cnt < 10) target_value = anondePotential; 
+        if (cnt < 10) target_value = anodePotential; 
         else {
           if (cnt % 1 ==0)
           {
-            if (anondePotential < target_value)
+            if (anodePotential < target_value)
             {
               trans_sig ++;
               if(trans_sig > 255){ 
@@ -226,22 +216,20 @@ void loop()
             }
           }
         }
-        double vol=ads.readADC_Differential_0_1();
-        vol=vol * multiplier;
-
-        current = ((vol)/(98.2));
-
-        anondePotential = ads.readADC_Differential_2_3();
-        anondePotential= (anondePotential * multiplier)/1000;
-
-        cell_vol = ads.readADC_SingleEnded(1);
-        cell_vol=(cell_vol * multiplier)/1000; 
+        
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
+  current = ((vol) / (98.2)); // ohm's law
+  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
+  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
 
         Serial.print(trans_sig);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(anondePotential, 10);
+        Serial.print(anodePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");
@@ -262,7 +250,7 @@ void loop()
         }
         if (cnt % 1 ==0)
         {
-          if (anondePotential > target_value)
+          if (anodePotential > target_value)
           {
             trans_sig --;
             if(trans_sig <=0 ){ 
@@ -275,23 +263,20 @@ void loop()
             delay(100); // allow voltage to stabilize
           }
         }
-
-        double vol=ads.readADC_Differential_0_1();
-        vol=vol * multiplier;
-
-        current = ((vol)/(98.2));
-
-        anondePotential = ads.readADC_Differential_2_3();
-        anondePotential= (anondePotential * multiplier)/1000;
-
-        cell_vol = ads.readADC_SingleEnded(1);
-        cell_vol=(cell_vol * multiplier)/1000; 
+        
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
+  current = ((vol) / (98.2)); // ohm's law
+  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
+  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000; 
 
         Serial.print(trans_sig);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(anondePotential, 10);
+        Serial.print(anodePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");
@@ -309,11 +294,11 @@ void loop()
         {
           target_value += 0.002;
         }
-        if (cnt < 10) target_value = anondePotential; 
+        if (cnt < 10) target_value = anodePotential; 
         else {
           if (cnt % 1 ==0)
           {
-            if (anondePotential < target_value)
+            if (anodePotential < target_value)
             {
               trans_sig ++;
               if(trans_sig > 255){ 
@@ -327,23 +312,19 @@ void loop()
             }
           }
         }
-
-        double vol=ads.readADC_Differential_0_1();
-        vol=vol * multiplier;
-
-        current = ((vol)/(98.2));
-
-        anondePotential = ads.readADC_Differential_2_3();
-        anondePotential= (anondePotential * multiplier)/1000;
-
-        cell_vol = ads.readADC_SingleEnded(1);
-        cell_vol=(cell_vol * multiplier)/1000; 
+  /* =====================================================
+  ============== Take ADC Readings =======================
+  ======================================================*/
+  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
+  current = ((vol) / (98.2)); // ohm's law
+  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
+  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000; 
 
         Serial.print(trans_sig);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
-        Serial.print(anondePotential, 10);
+        Serial.print(anodePotential, 10);
         Serial.print("  ");
         Serial.print(cell_vol, 10);
         Serial.println("  ");

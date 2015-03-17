@@ -1,7 +1,7 @@
 /*
  lsv_v4_3.ino
 
- Version: 1.0.1
+ Version: 1.0.2
 
  Measures current while increasing anode potential at a set rate (1mV/s)
  
@@ -10,7 +10,7 @@
  ***ONLY WORKS ON CIRCUIT V4.3********
  ==================================================
  
- Last modified: March 14, 2015
+ Last modified: March 16, 2015
  
  1.0.0 Changes:
  - Moved digital pot communication to end of loop
@@ -22,6 +22,9 @@
  1.0.1 Changes:
   - Refactored anodePotential to anodePotential
   - Moved ADC readings to end of loop after delay (Issue #9)
+  
+ 1.0.2 Changes:
+  - Added comments
   
   
  Adam Burns - burns7@illinois.edu
@@ -189,16 +192,21 @@ void loop()
 
   delay(1000);
 
+
+/* =====================================================
+============== Take ADC Readings =======================
+======================================================*/
   double vol=ads.readADC_Differential_0_1();
   vol=vol * multiplier;
-
-  current = ((vol)/(98.2));
-
+  
+  current = ((vol)/(98.2)); //ohm's law
+  
   anodePotential = ads.readADC_Differential_2_3();
   anodePotential= (anodePotential * multiplier)/1000;
-
+  
   cell_vol = ads.readADC_SingleEnded(1);
   cell_vol=(cell_vol * multiplier)/1000; 
+  /*======================== end ======================*/
 
 #if DEBUG
   Serial.println();

@@ -1,7 +1,7 @@
 /*
  set_potential_v4_3.ino
  
- Version: 1.0.2
+ Version: 1.0.3
  
  Measures current while holding the anode potential close to a specified value
  
@@ -28,7 +28,10 @@
 
   1.0.2 Changes:
   - Added comments 
- 
+
+  1.0.3 Changes:
+  - Refactored trans_sig to digiPotValue
+
  Adam Burns - burns7@illinois.edu
  */
  
@@ -43,7 +46,7 @@ const int Power1 = 6; // power control for MCP4161 #1 to D6
 unsigned long offDuration = 300000; // off mode for 30 mins (1,800,000ms)
 
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
-int trans_sig = 0; // Value sent to digipot
+int digiPotValue = 0; // Value sent to digipot
 int cnt = 0;
 double current=0; 
 double anodePotential=0;
@@ -135,13 +138,13 @@ void loop()
 
 
   if(offState==false){
-    if (anodePotential < -0.352) trans_sig ++;
-    else if (anodePotential > -0.342 && trans_sig >0) trans_sig --;
+    if (anodePotential < -0.352) digiPotValue ++;
+    else if (anodePotential > -0.342 && digiPotValue >0) digiPotValue --;
   }
 
   digitalWrite(csPin1, LOW);
   SPI.transfer(0);
-  SPI.transfer(trans_sig);
+  SPI.transfer(digiPotValue);
   digitalWrite(csPin1, HIGH);
   delay(200); // let the state change stabilize
 
@@ -162,8 +165,8 @@ cell_vol = ((ads.readADC_SingleEnded(1))*multiplier)/1000;
 ======================================================*/
 #if DEBUG
   Serial.println();
-  Serial.print("trans_sig: ");
-  Serial.println(trans_sig);
+  Serial.print("digiPotValue: ");
+  Serial.println(digiPotValue);
   Serial.print("current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");

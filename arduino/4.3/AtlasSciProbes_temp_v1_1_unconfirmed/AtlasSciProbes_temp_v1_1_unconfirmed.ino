@@ -1,42 +1,20 @@
 /*
 AtlasSciProbes_temp.ino
  
- Version: 1.1
+ Version: 1.1.2
  
  ******** Currently not working *******
  
  Measures PH, electrical conductivity, dissolved oxygen, and temperature
  
+**************
+Configuration:
+  Serial 1: pH
+  Serial 2: EC
+  Serial 3: DO
+**************
  
- Atlas Sci: 
- "
- * To open a channel (marked on the board as  Y0 to Y3) send the number of the 
- channel, a colon and the command ending with a carriage return. Ex:
- 
- 0:r<CR>
- 1:i<CR>
- 2:c<CR>
- 3:r<CR>
- 
- 
- *To open a channel and not send a command, send channel number followed by a colon:
- 
- 1:<CR>
- 3:<CR> 
- 
- **Note: this softserial library Automatically sets TX as pin 9 and RX as pin 8.
- **Note: Arduino uno pin D10 cannot be used
- 
- // AltSoftSerial always uses these pins:
- //
- // Board          Transmit  Receive   PWM Unusable
- // -----          --------  -------   ------------
- // Arduino Uno        9         8         10
- // Arduino Leonardo   5        13       (none)
- // Arduino Mega      46        48       44, 45
- "
- 
- 
+
  Last modified: 1/29/15 - Adam Burns - burns7@illinois.edu
  
  Changes:
@@ -48,20 +26,14 @@ AtlasSciProbes_temp.ino
 
 
 //  ===================== Atlas Sci =======================
-#include <AltSoftSerial.h>
-AltSoftSerial altSerial;            //Name the software serial library altSerial (this cannot be omitted)  
 
-int s0 = 7;                         //Arduino pin 7 to control pin S0
-int s1 = 6;                         //Arduino pin 6 to control pin S1
 
 char computerdata[20];               //A 20 byte character array to hold incoming data from a pc/mac/other 
 char sensordata[30];                 //A 30 byte character array to hold incoming data from the sensors
 byte computer_bytes_received=0;            
-byte sensor_bytes_received=0;        
+byte sensor_bytes_received=0;  
+String sensorstring="";
 
-
-char *channel;                       //Char pointer used in string parsing
-char *cmd;                           //Char pointer used in string parsing
 // ============== end Atlas Sci ==========================
 
 
@@ -81,10 +53,17 @@ byte startup=0;
 void setup(void)
 {
 
-  pinMode(s1, OUTPUT);              //Set the digital pin as output.
-  pinMode(s0, OUTPUT);              //Set the digital pin as output.
+/**************
+Configuration:
+  Serial 1: pH
+  Serial 2: EC
+  Serial 3: DO
+**************/
+ 
   Serial.begin(38400);              //Set the hardware serial port to 38400
-  altSerial.begin(38400);           //Set the soft serial port to 38400
+  Serial2.begin(38400);
+  Serial3.begin(38400);
+  sensorstring.reserve(30);
 
     // Temp Probe initilization
   sensors.begin(); // IC Default 9 bit (change to 12 if issues exist)
@@ -95,10 +74,18 @@ void Arduino_Control(){
 
   if(startup==0){        //if the Arduino just booted up, we need to set some things up first.   
 #if DEBUG
-    Serial.println("taken out of continuous mode");
+/**************
+Configuration:
+  Serial 1: pH
+  Serial 2: EC
+  Serial 3: DO
+**************/
+ 
+Serial.println();
+    Serial.print("pH Cercuit Version:");
+    
 #endif
-    for(int i=0; i<3; i++){
-      open_channel(i);
+/*
       delay(100);
       altSerial.print(i);
       altSerial.print(":c,");   //take the pH Circuit out of continues mode. 
@@ -110,8 +97,10 @@ void Arduino_Control(){
       altSerial.print(0);
       altSerial.print("\r");  //so, let’s send it twice.
       delay(50);                 //a short delay after the pH Circuit was taken out of continues mode is used to make sure we don’t over load it with commands.
-    }
+    
     startup=1;                 //startup is completed, let's not do this again during normal operation. 
+    
+    8*/
   }
 }
 
@@ -120,11 +109,17 @@ void serialEvent(){               //This interrupt will trigger when data from t
   computerdata[computer_bytes_received]=0; //Append a 0 to array after last recieved character
 }    
 
-void open_channel(int y);
+
 
 void loop(void)
 { 
-
+/**************
+Configuration:
+  Serial 1: pH
+  Serial 2: EC
+  Serial 3: DO
+**************/
+ 
   // *********************************************************
   // ******** does this cause an issue w/ EZO sensors? *******
   // *********************************************************
@@ -147,7 +142,7 @@ void loop(void)
 
   // Channel Y0
   Serial.print("DO: ");
-  open_channel(0);
+  
   delay(500);
   /*
   digitalWrite(s0, LOW);                       //S0 and S1 control what channel opens 
@@ -156,10 +151,11 @@ void loop(void)
    altSerial.print("0:");                         //Send the command from the computer to the Atlas Scientific device using the softserial port 
    altSerial.print("\r");
    delay(500);
-   */
+   
   altSerial.print("0:r");                         //Send the command from the computer to the Atlas Scientific device using the softserial port 
   altSerial.print("\r"); 
   delay(1500);  //After we send the command we send a carriage return <CR> 
+  */
   getAtlasReading();
 
   delay(1000);
@@ -170,11 +166,7 @@ void loop(void)
   //open_channel(1);
 
   delay(500);
-  digitalWrite(s0, HIGH);
-  digitalWrite(s1, LOW);
-  delay(500);
-  open_channel(1);
-  delay(500);
+ 
   getAtlasReading();
   /*
   delay(500);
@@ -185,10 +177,7 @@ void loop(void)
    altSerial.print("\r");
    */
   delay(1500);
-  altSerial.print("1:r");                         //Send the command from the computer to the Atlas Scientific device using the softserial port 
-  altSerial.print("\r");  
-  delay(500);  //After we send the command we send a carriage return <CR> 
-  getAtlasReading();
+ 
   delay(1000);
   Serial.print(", ");
 
@@ -204,16 +193,15 @@ void loop(void)
    altSerial.print("2:");                         //Send the command from the computer to the Atlas Scientific device using the softserial port 
    altSerial.print("\r");
    delay(500);
-   */
-  open_channel(2);
-  delay(500);
+   
+ 
   altSerial.print("2:r");                         //Send the command from the computer to the Atlas Scientific device using the softserial port 
   altSerial.print("\r");  
   delay(1500);  //After we send the command we send a carriage return <CR> 
   getAtlasReading();
   delay(1000);
   Serial.print(";");
-
+*/
   Serial.println(); //new line
   //delay(500);
   //open_channel(0);
@@ -221,44 +209,27 @@ void loop(void)
 }
 
 
-void open_channel(int channel){                                  //This function controls what UART port is opened. 
-
-  switch (channel) {                              //Looking to see what channel to open   
-
-  case 0:                                      //If channel==0 then we open channel 0     
-    digitalWrite(s0, LOW);                       //S0 and S1 control what channel opens 
-    digitalWrite(s1, LOW);                       //S0 and S1 control what channel opens  
-    break;                                         //Exit switch case
-
-  case 1:
-    digitalWrite(s0, HIGH);
-    digitalWrite(s1, LOW);
-    break;
-
-  case 2:
-    digitalWrite(s0, LOW);
-    digitalWrite(s1, HIGH);
-    break;
-
-  case 3:
-    digitalWrite(s0, HIGH);
-    digitalWrite(s1, HIGH); 
-    break;
-  }
-}
 
 void getAtlasReading(){
-  if(altSerial.available() > 0){                   //If data has been transmitted from an Atlas Scientific device
-    sensor_bytes_received=altSerial.readBytesUntil(13,sensordata,30); ///Read from serial monitor(pc) until a <CR> & count # of recieved characters 
+  
+  /**************
+Configuration:
+  Serial 1: pH
+  Serial 2: EC
+  Serial 3: DO
+**************/
+ 
+  if(Serial3.available() > 0){                   //If data has been transmitted from an Atlas Scientific device
+    sensor_bytes_received=Serial3.readBytesUntil(13,sensordata,30); ///Read from serial monitor(pc) until a <CR> & count # of recieved characters 
     sensordata[sensor_bytes_received]=0;           //Append a 0 to array after last recieved character
     Serial.print(sensordata);      // transmit data from the Atlas Scientific probe to serial monitor   
     sensor_bytes_received=0;
     //int length = 0; 
     //sensordata[]=0;
-    altSerial.flushInput();
-    altSerial.flushOutput();
+    Serial3.flush();
+    Serial3.flush();
   }
-  else if(altSerial.available()<=0){
+  else if(Serial3.available()<=0){
 
     Serial.print("Atlas Sci Probe error");
   }

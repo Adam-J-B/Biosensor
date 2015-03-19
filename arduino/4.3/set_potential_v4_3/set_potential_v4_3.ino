@@ -3,9 +3,8 @@
  
  Version: 1.0.2
  
- Measures current while holding the anode potential close to a specified value
- 
- 
+ Measures current while hoding the anndoe potential close to a speceified value
+
  =============================================================
  ***** ONLY WORKS WITH CIRCUIT VERSION 4.3 **********
  =============================================================
@@ -13,7 +12,7 @@
  30 minutes in open circui mode . 
  During off mode, log all of the same data as the other part of the sketch.
  
- Last modified: March 17, 2015
+ Last modified: March 19, 2015
  
  
  1.0.0 Changes:
@@ -22,14 +21,17 @@
  - Changed digipot cs pin to D7
  - Fixed issue with digitpot CS pin 
  - Removed code for 2nd digipot
+  
  
   1.0.1 Changes:
   - Refactored anodePotential to anodePotential
+
 
   1.0.2 Changes:
   - Added comments 
  
  Adam Burns - burns7@illinois.edu
+ 
  */
  
 #include <Wire.h>
@@ -176,16 +178,36 @@ cell_vol = ((ads.readADC_SingleEnded(1))*multiplier)/1000;
 #endif
 
 
+
+/*******************************************************************
+********************************************************************
+                             FIX #1 
+********************************************************************
+********************************************************************
+     FIX: Print out ADC readings at a fixed rate (via timer1)
+********************************************************************
+********************************************************************
+Description:
+
+Instead of printing out the ADC readings every time the counter 
+reaches 6, use timer1's interrupt function.
+
+*/
+//=== Every 6 counts (cnt), print ADC readings to serial monitor ===
   if (cnt == 6){
-    // Print ADC readings to serial momnitor
     cnt = 0;
+    
+    // Print ADC readings to serial momnitor
     Serial.print(current, numOfDigits);
     Serial.print("  ");
     Serial.print(anodePotential, numOfDigits);
     Serial.print("  ");
     Serial.println(cell_vol, numOfDigits);
-
   }
+/*******************************************************************
+********************************************************************
+                          End FIX #1
+********************************************************************/
 
   delay(10000);
 

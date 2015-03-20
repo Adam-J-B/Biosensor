@@ -1,7 +1,7 @@
 /*
  cv_v4_3.ino
  
- Version: 1.0.2
+ Version: 1.0.3
  
  Measures current while cycling the anode potential at a set rate
    - Start with both off for 30 minutes, then run CV using initial potential
@@ -20,6 +20,8 @@
  1.0.2 Changes:
   - Added comments
  
+ 1.0.3 Changes:
+  - Refactored trans_sig to digiPotValue 
 
  
  Adam Burns - burns7@illinois.edu
@@ -45,7 +47,7 @@ int delayInterval = 1000; // rate of sweep (1000=1s -> 1mv/1s)
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int csPin2 = 3; //Chip select D3 for digital pot #2
 
-int trans_sig = 0;
+int digiPotValue = 0;
 int cnt = 0;
 int resistor = 98.2; // R2 resistance in Ohms
 int lsv_finished = 0;
@@ -136,12 +138,12 @@ void loop()
   anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
   cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
     
-    if (anodePotential < -0.352) trans_sig ++;
-    else if (anodePotential > -0.342 && trans_sig >0) trans_sig --;
+    if (anodePotential < -0.352) digiPotValue ++;
+    else if (anodePotential > -0.342 && digiPotValue >0) digiPotValue --;
 
     digitalWrite(csPin1, LOW);
     SPI.transfer(0);
-    SPI.transfer(trans_sig);
+    SPI.transfer(digiPotValue);
     digitalWrite(csPin1, HIGH);
     delay(500);
     
@@ -165,8 +167,8 @@ void loop()
 
 #if DEBUG
   Serial.println();
-  Serial.print("trans_sig: ");
-  Serial.print(trans_sig);
+  Serial.print("digiPotValue: ");
+  Serial.print(digiPotValue);
   Serial.print(",  current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");
@@ -204,13 +206,13 @@ void loop()
           {
             if (anodePotential < target_value)
             {
-              trans_sig ++;
-              if(trans_sig > 255){ 
-                trans_sig = 255; 
+              digiPotValue ++;
+              if(digiPotValue > 255){ 
+                digiPotValue = 255; 
               }
               digitalWrite(csPin1, LOW);
               SPI.transfer(0);
-              SPI.transfer(trans_sig);
+              SPI.transfer(digiPotValue);
               digitalWrite(csPin1, HIGH);
               delay(100); // allow voltage to stabilize before reading
             }
@@ -225,7 +227,7 @@ void loop()
   anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
   cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
 
-        Serial.print(trans_sig);
+        Serial.print(digiPotValue);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
@@ -240,8 +242,8 @@ void loop()
 
 
 
-      // decrease until trans_sig = 0
-      while(trans_sig>0){
+      // decrease until digiPotValue = 0
+      while(digiPotValue>0){
         cnt++;
 
         if (cnt % 2 == 0 && cnt != 0) 
@@ -252,13 +254,13 @@ void loop()
         {
           if (anodePotential > target_value)
           {
-            trans_sig --;
-            if(trans_sig <=0 ){ 
-              trans_sig = 0; 
+            digiPotValue --;
+            if(digiPotValue <=0 ){ 
+              digiPotValue = 0; 
             }
             digitalWrite(csPin1, LOW);
             SPI.transfer(0);
-            SPI.transfer(trans_sig);
+            SPI.transfer(digiPotValue);
             digitalWrite(csPin1, HIGH);
             delay(100); // allow voltage to stabilize
           }
@@ -272,7 +274,7 @@ void loop()
   anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
   cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000; 
 
-        Serial.print(trans_sig);
+        Serial.print(digiPotValue);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");
@@ -300,13 +302,13 @@ void loop()
           {
             if (anodePotential < target_value)
             {
-              trans_sig ++;
-              if(trans_sig > 255){ 
-                trans_sig = 255; 
+              digiPotValue ++;
+              if(digiPotValue > 255){ 
+                digiPotValue = 255; 
               }
               digitalWrite(csPin1, LOW);
               SPI.transfer(0);
-              SPI.transfer(trans_sig);
+              SPI.transfer(digiPotValue);
               digitalWrite(csPin1, HIGH);
               delay(100); // allow voltage to stabilize
             }
@@ -320,7 +322,7 @@ void loop()
   anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
   cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000; 
 
-        Serial.print(trans_sig);
+        Serial.print(digiPotValue);
         Serial.print("      ");
         Serial.print(current, 10);
         Serial.print("  ");

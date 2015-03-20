@@ -1,7 +1,7 @@
 /*
  lsv_v4_3.ino
 
- Version: 1.0.2
+ Version: 1.0.3
 
  Measures current while increasing anode potential at a set rate (1mV/s)
 
@@ -17,7 +17,7 @@
  - Added ADS1115 library + code
  - Changed SPI CS pin for digipot to D7
  - MOSFET between cathod + digipot & GND - pin D6
- - Read from the ADC after changing the digipot trans_sig
+ - Read from the ADC after changing the digipot digiPotValue
 
  1.0.1 Changes:
   - Refactored anodePotential to anodePotential
@@ -26,6 +26,8 @@
  1.0.2 Changes:
   - Added comments
 
+ 1.0.3 Changes:
+  - Refactored trans_sig to digiPotValue
 
  Adam Burns - burns7@illinois.edu
  */
@@ -46,7 +48,7 @@ int numOfDigits = 5;
 int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int csPin2 = 3; //Chip select D3 for digital pot #2
 
-int trans_sig = 0;
+int digiPotValue = 0;
 int cnt = 0;
 int resistor = 98.2; // R2 resistance in Ohms
 int lsv_finished = 0;
@@ -130,7 +132,7 @@ void loop()
   }
 
 
-  Serial.print(trans_sig);
+  Serial.print(digiPotValue);
   Serial.print("      ");
   Serial.print(current, 10);
   Serial.print("  ");
@@ -159,14 +161,14 @@ void loop()
         {
           if (anodePotential < target_value)
           {
-            trans_sig ++;
-            if (trans_sig > 255) {
-              trans_sig = 255;
+            digiPotValue ++;
+            if (digiPotValue > 255) {
+              digiPotValue = 255;
               Serial.println(" ERROR: Digipot exceeding max value (255)");
             }
             digitalWrite(csPin1, LOW);
             SPI.transfer(0);
-            SPI.transfer(trans_sig);
+            SPI.transfer(digiPotValue);
             digitalWrite(csPin1, HIGH);
             delay(100); //allow voltage to stabilize
           }
@@ -174,10 +176,10 @@ void loop()
       }
     }
     else {
-      trans_sig = 0;
+      digiPotValue = 0;
       digitalWrite(csPin1, LOW);
       SPI.transfer(0);
-      SPI.transfer(trans_sig);
+      SPI.transfer(digiPotValue);
       digitalWrite(csPin1, HIGH);
     }
   }
@@ -202,8 +204,8 @@ void loop()
   ======================================================*/
 #if DEBUG // if DEBUG is set to 1 (line 60), print out readings
   Serial.println();
-  Serial.print("trans_sig: ");
-  Serial.print(trans_sig);
+  Serial.print("digiPotValue: ");
+  Serial.print(digiPotValue);
   Serial.print(",  current: ");
   Serial.print(current, numOfDigits);
   Serial.print(",  annode potential:");

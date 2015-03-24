@@ -36,7 +36,19 @@
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 
+#define initTimerCnt  63973     //2^16  - 16MHz/1024/(10Hz = interrupt rate)
+#define MULTIPLIER 0.125F   // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
+#define RESISTANCE 98.2     // @TODO
+#define DEBUG 0 // set to 1 to print debug data to serial monitor
+
 Adafruit_ADS1115 ads;
+volatile double anodePotential;
+volatile double current;
+volatile double cell_vol;
+volatile double vol;
+volatile double anodePotentialROC;       //The rate of change of the anodePotential
+volatile bool adjustDigiPot == false;
+
 int power1state = LOW;
 int power2state = LOW;
 boolean offState = true;
@@ -55,7 +67,6 @@ int lsv_finished = 0;
 
 double target_value;
 //double tol = 0.001;
-#define DEBUG 0 // set to 1 to print debug data to serial monitor
 
 /*#############################################################################
 ##############################  Setup Function  ###############################
@@ -96,6 +107,19 @@ void setup()
   //analogReference(INTERNAL);
   //delay(offDuration); // stay open for 30 minutes
   //digitalWrite(Power2, HIGH); // power on anode #2
+
+    // initialize Timer1
+    cli();          // disable global interrupts
+    TCCR1A = 0;     // set entire TCCR1A register to 0
+    TCCR1B = 0;
+    TCNT1 = iniTimerCnt;
+    // enable Timer1 overflow interrupt:
+    TIMSK1 = (1 << TOIE1);
+    // Set CS10 bit so timer runs at clock speed:
+    TCCR1B |= (1 << CS12) | (1 << CS10);
+    // enable global interrupts:
+    sei();
+
 }
 /*######################### end setup function ##############################*/
 
@@ -105,27 +129,89 @@ void setup()
 #############################################################################*/
 void loop()
 {
-
-
-  float multiplier = 0.125F; // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-  double anodePotential;
-  double current;
-  double cell_vol;
-  double vol;
-
-
-  if (offState == true) {
-    unsigned long currentMillis = millis();
-    if ((currentMillis > offDuration) && (offState == true))
-    {
-      power1state = HIGH;
-      power2state = HIGH;
-      offState = false;
-      digitalWrite(Power1, power1state);
-      digitalWrite(Power2, power2state);
-      delay(150); //allow current to stabilize
+    static bool firstTime = true;
+    if (offState == true) { /*TODO Does the program start in the offstate?*/
+        while(true){/*Keep Spinning*/ }
     }
-  }
+    if(adjustDigiPot && offState == false)
+    {
+
+        Serial.println();
+        Serial.print("digiPotValue: ");
+        Serial.print(digiPotValue);
+        Serial.print("      ");
+        Serial.print(current, 10);
+        Serial.print("  ");
+        Serial.print(anodePotential, 10);
+        Serial.print("  ");
+        Serial.print(cell_vol, 10);
+        Serial.println("  ");
+
+        if(cnt == 0)
+        {
+            target_value = anodePotential;
+        }
+
+
+        if(/*TODO*/)
+        {
+            target_value += 0.002;
+            if (target_value > 0)
+            {
+                lsv_finished = 1;
+            }
+        }
+        if (lsv_finished == 0)
+        {
+            if (cnt < 10) target_value = anodePotential;
+            else
+            {
+                if (anodePotential < target_value)
+                {
+                  digiPotValue ++;
+                  if (digiPotValue > 255)
+                  {
+                        digiPotValue = 255;
+                        Serial.println(" ERROR: Digipot exceeding max value (255)");
+                  }
+                  digitalWrite(csPin1, LOW);
+                  SPI.transfer(0);
+                  SPI.transfer(digiPotValue);
+                  digitalWrite(csPin1, HIGH);
+                }
+            } 
+        }
+        else
+        {
+             digiPotValue = 0;
+             digitalWrite(csPin1, LOW);
+             SPI.transfer(0);
+             SPI.transfer(digiPotValue);
+             digitalWrite(csPin1, HIGH);
+        }
+        adjustDigiPot = false;
+    }
+
+
+
+
+
+
+
+ 
+
+//  if (offState == true) {
+//    unsigned long currentMillis = millis();
+//    if ((currentMillis > offDuration) && (offState == true))
+//    {
+//      power1state = HIGH;
+//      power2state = HIGH;
+//      offState = false;
+//      digitalWrite(Power1, power1state);
+//      digitalWrite(Power2, power2state);
+//      delay(150); //allow current to stabilize
+//    }
+//  }
 
   if (cnt == 0) {
     target_value = anodePotential;
@@ -219,4 +305,58 @@ void loop()
 #endif
   /* =====================================================*/
 
+}
+
+ISR(TIMER1_OVF_vect)
+{
+    static int irqcnt = 0; 
+    static double anodePotentialArray[10];
+    static unsigned long timeArray[10]
+
+    TCNT1 = initTimerCnt;
+    readADC();
+
+    anodePotentialArray[irqcnt%10] = anodePotential;
+    timeArray[irqcnt%10] = micros();
+
+    irqcnt++;
+
+    if(irqcnt % 10 == 0)
+    {
+
+        anodePotentialROC  = getROC(anodePotentialArray, timeArray); 
+        adjustDigiPot == true;
+    }
+}
+
+void readADC()
+{
+    vol = (ads.readADC_Differential_0_1()) * MULTIPLIER; // Voltage reading
+    current = ((vol) / (RESISTANCE)); // ohm's law
+    anodePotential = ((ads.readADC_Differential_2_3()) * MULTIPLIER) / 1000;
+    cell_vol = ((ads.readADC_SingleEnded(1)) * MULTIPLIER) / 1000;
+}
+
+double getROC(double* anodePotentialArray, unsigned long* timeArray) 
+{
+    
+    double anodeMean = 0;
+    double timeMean = 0;
+    double sumAnodoe = 0;
+    double sumTime = 0;
+    double sumAnodeTime  0;
+    double sumTimeSquared = 0;
+
+    
+    for(int i; i< 10; i++)
+    {
+        sumAnode += anodePotentialArray[i];
+        sumTime += (double)timeArray[i];
+        sumAnodeTime += anodePotentialArray[i]*(double)timeArray[i];
+        sumTimeSqared += (double)(timeArray[i]*timeArray[i]);  
+    }
+    anodeMean = sumAnode/10;
+    timeMean = sumTime/10;
+    
+    return (sumAnodeTime-(sumTime*anodeMean))/(sumTimeSquared - (sumTime*timeMean));
 }

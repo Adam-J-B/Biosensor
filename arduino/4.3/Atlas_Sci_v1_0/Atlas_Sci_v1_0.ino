@@ -6,8 +6,6 @@ Atlas_Sci_v1_0.ino
  
  Version: 1.0.1
  
- ******** Currently not working *******
- 
  Measures PH, electrical conductivity, dissolved oxygen
  
   /**************
@@ -19,12 +17,8 @@ Atlas_Sci_v1_0.ino
    
 Last modified: 3/24/15 - Adam Burns - burns7@illinois.edu
 
-
-
 */
 
-
-// DO probe
 
 
 String inputstring = "";                                                       //a string to hold incoming data from the PC

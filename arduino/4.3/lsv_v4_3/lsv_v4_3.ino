@@ -37,9 +37,12 @@
 #include <Adafruit_ADS1015.h>
 
 #define initTimerCnt  63973     //2^16  - 16MHz/1024/(10Hz = interrupt rate)
-#define MULTIPLIER 0.125F   // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
-#define RESISTANCE 98.2     // @TODO
-#define DEBUG 0 // set to 1 to print debug data to serial monitor
+#define MULTIPLIER 0.125F       // ADS1115  1x gain   +/- 4.096V (16-bit results) 0.125mV
+#define RESISTANCE 98.2         // The value of the intrenal resistor
+#define TOLERANCE 0.0           // The tolerance of the scan rate.
+#define digiPotAdjRate 10       /* The number of ADCreads that are taken before
+                                   adjusting the digiPotValue*/                      
+
 
 Adafruit_ADS1115 ads;
 volatile double anodePotential;
@@ -47,7 +50,8 @@ volatile double current;
 volatile double cell_vol;
 volatile double vol;
 volatile double anodePotentialROC;       //The rate of change of the anodePotential
-volatile bool adjustDigiPot == false;
+volatile bool adjustDigiPot = false;
+double scanRate = 1.0;                  //The rate that the program is trying to achieve
 
 int power1state = LOW;
 int power2state = LOW;
@@ -61,12 +65,7 @@ int csPin1 = 7; //Chip select Digital Pin 7 for digital pot #1
 int csPin2 = 3; //Chip select D3 for digital pot #2
 
 int digiPotValue = 0;
-int cnt = 0;
-int resistor = 98.2; // R2 resistance in Ohms
 int lsv_finished = 0;
-
-double target_value;
-//double tol = 0.001;
 
 /*#############################################################################
 ##############################  Setup Function  ###############################
@@ -112,7 +111,7 @@ void setup()
     cli();          // disable global interrupts
     TCCR1A = 0;     // set entire TCCR1A register to 0
     TCCR1B = 0;
-    TCNT1 = iniTimerCnt;
+    TCNT1 = initTimerCnt; 
     // enable Timer1 overflow interrupt:
     TIMSK1 = (1 << TOIE1);
     // Set CS10 bit so timer runs at clock speed:
@@ -129,199 +128,59 @@ void setup()
 #############################################################################*/
 void loop()
 {
-    static bool firstTime = true;
-    if (offState == true) { /*TODO Does the program start in the offstate?*/
-        while(true){/*Keep Spinning*/ }
-    }
-    if(adjustDigiPot && offState == false)
+    if (offState == true) 
     {
-
-        Serial.println();
-        Serial.print("digiPotValue: ");
-        Serial.print(digiPotValue);
-        Serial.print("      ");
-        Serial.print(current, 10);
-        Serial.print("  ");
-        Serial.print(anodePotential, 10);
-        Serial.print("  ");
-        Serial.print(cell_vol, 10);
-        Serial.println("  ");
-
-        if(cnt == 0)
+        unsigned long currentMillis = millis();
+        if ((currentMillis > offDuration) && (offState == true))
         {
-            target_value = anodePotential;
+            power1state = HIGH;
+            power2state = HIGH;
+            offState = false;
+            digitalWrite(Power1, power1state);
+            digitalWrite(Power2, power2state);
+            delay(150); //allow current to stabilize
         }
+    }
 
-
-        if(/*TODO*/)
-        {
-            target_value += 0.002;
-            if (target_value > 0)
-            {
-                lsv_finished = 1;
-            }
+    if(adjustDigiPot && offState == false && anodePotential < 0)
+    {
+        if(anodePotentialROC < scanRate-TOLERANCE)
+        { 
+            digiPotValue ++;
+            writeDigiPotValue();
         }
-        if (lsv_finished == 0)
+        else if(anodePotentialROC > scanRate+TOLERANCE)
         {
-            if (cnt < 10) target_value = anodePotential;
-            else
-            {
-                if (anodePotential < target_value)
-                {
-                  digiPotValue ++;
-                  if (digiPotValue > 255)
-                  {
-                        digiPotValue = 255;
-                        Serial.println(" ERROR: Digipot exceeding max value (255)");
-                  }
-                  digitalWrite(csPin1, LOW);
-                  SPI.transfer(0);
-                  SPI.transfer(digiPotValue);
-                  digitalWrite(csPin1, HIGH);
-                }
-            } 
-        }
-        else
-        {
-             digiPotValue = 0;
-             digitalWrite(csPin1, LOW);
-             SPI.transfer(0);
-             SPI.transfer(digiPotValue);
-             digitalWrite(csPin1, HIGH);
+            digiPotValue--;
+            writeDigiPotValue();
         }
         adjustDigiPot = false;
     }
-
-
-
-
-
-
-
- 
-
-//  if (offState == true) {
-//    unsigned long currentMillis = millis();
-//    if ((currentMillis > offDuration) && (offState == true))
-//    {
-//      power1state = HIGH;
-//      power2state = HIGH;
-//      offState = false;
-//      digitalWrite(Power1, power1state);
-//      digitalWrite(Power2, power2state);
-//      delay(150); //allow current to stabilize
-//    }
-//  }
-
-  if (cnt == 0) {
-    target_value = anodePotential;
-  }
-
-
-  Serial.print(digiPotValue);
-  Serial.print("      ");
-  Serial.print(current, 10);
-  Serial.print("  ");
-  Serial.print(anodePotential, 10);
-  Serial.print("  ");
-  Serial.print(cell_vol, 10);
-  Serial.println("  ");
-
-
-  if (offState == false) {
-    cnt ++;
-    if (cnt % 2 == 0 && cnt != 0)
+    else if(anodePotential >= 0)
     {
-      target_value += 0.002;
-      if (target_value > 0)
-      {
-        lsv_finished = 1;
-      }
+        digiPotValue = 0;
+        digitalWrite(csPin1, LOW);
+        SPI.transfer(0);
+        SPI.transfer(digiPotValue);
+        digitalWrite(csPin1, HIGH);
     }
-
-    if (lsv_finished == 0)
-    {
-      if (cnt < 10) target_value = anodePotential;
-      else {
-        if (cnt % 1 == 0)
-        {
-          if (anodePotential < target_value)
-          {
-            digiPotValue ++;
-            if (digiPotValue > 255) {
-              digiPotValue = 255;
-              Serial.println(" ERROR: Digipot exceeding max value (255)");
-            }
-            digitalWrite(csPin1, LOW);
-            SPI.transfer(0);
-            SPI.transfer(digiPotValue);
-            digitalWrite(csPin1, HIGH);
-            delay(100); //allow voltage to stabilize
-          }
-        }
-      }
-    }
-    else {
-      digiPotValue = 0;
-      digitalWrite(csPin1, LOW);
-      SPI.transfer(0);
-      SPI.transfer(digiPotValue);
-      digitalWrite(csPin1, HIGH);
-    }
-  }
-
-
-
-  delay(1000);
-
-
-  /* =====================================================
-  ============== Take ADC Readings =======================
-  ======================================================*/
-  vol = (ads.readADC_Differential_0_1()) * multiplier; // Voltage reading
-  current = ((vol) / (98.2)); // ohm's law
-  anodePotential = ((ads.readADC_Differential_2_3()) * multiplier) / 1000;
-  cell_vol = ((ads.readADC_SingleEnded(1)) * multiplier) / 1000;
-  /*================= end ADC readings ==================*/
-
-
-  /* =====================================================
-  ===================== Diagnostic =======================
-  ======================================================*/
-#if DEBUG // if DEBUG is set to 1 (line 60), print out readings
-  Serial.println();
-  Serial.print("digiPotValue: ");
-  Serial.print(digiPotValue);
-  Serial.print(",  current: ");
-  Serial.print(current, numOfDigits);
-  Serial.print(",  annode potential:");
-  Serial.print(anodePotential, numOfDigits);
-  Serial.print(",  Cell vol:");
-  Serial.print(cell_vol, numOfDigits);
-  Serial.print(", Cnt: ");
-  Serial.println(cnt);
-  Serial.print(", Target: ");
-  Serial.println(target_value, numOfDigits);
-#endif
-  /* =====================================================*/
-
 }
 
 ISR(TIMER1_OVF_vect)
 {
     static int irqcnt = 0; 
-    static double anodePotentialArray[10];
-    static unsigned long timeArray[10]
+    static double anodePotentialArray[digiPotAdjRate];
+    static unsigned long timeArray[digiPotAdjRate];
 
     TCNT1 = initTimerCnt;
     readADC();
 
-    anodePotentialArray[irqcnt%10] = anodePotential;
-    timeArray[irqcnt%10] = micros();
+    anodePotentialArray[irqcnt % digiPotAdjRate] = anodePotential;
+    timeArray[irqcnt % digiPotAdjRate] = micros()/1000000;
 
     irqcnt++;
 
-    if(irqcnt % 10 == 0)
+    if(irqcnt % digiPotAdjRate == 0)
     {
 
         anodePotentialROC  = getROC(anodePotentialArray, timeArray); 
@@ -342,21 +201,56 @@ double getROC(double* anodePotentialArray, unsigned long* timeArray)
     
     double anodeMean = 0;
     double timeMean = 0;
-    double sumAnodoe = 0;
+    double sumAnode = 0;
     double sumTime = 0;
-    double sumAnodeTime  0;
+    double sumAnodeTime = 0;
     double sumTimeSquared = 0;
 
     
-    for(int i; i< 10; i++)
+    for(int i; i< digiPotAdjRate; i++)
     {
         sumAnode += anodePotentialArray[i];
         sumTime += (double)timeArray[i];
         sumAnodeTime += anodePotentialArray[i]*(double)timeArray[i];
-        sumTimeSqared += (double)(timeArray[i]*timeArray[i]);  
+        sumTimeSquared += (double)(timeArray[i]*timeArray[i]);  
     }
-    anodeMean = sumAnode/10;
-    timeMean = sumTime/10;
+    anodeMean = sumAnode/digiPotAdjRate;
+    timeMean = sumTime/digiPotAdjRate;
     
     return (sumAnodeTime-(sumTime*anodeMean))/(sumTimeSquared - (sumTime*timeMean));
+}
+
+void writeDigiPotValue()
+{
+    if (digiPotValue > 255)
+    {
+        digiPotValue = 255;
+        Serial.println(" ERROR: Digipot exceeding max value (255)");
+    }
+
+    if(digiPotValue < 0)
+    {
+        digiPotValue = 0;
+        Serial.println(" ERROR: Digipot has fallen bellow the  min value (0)");
+    }
+
+    digitalWrite(csPin1, LOW);
+    SPI.transfer(0);
+    SPI.transfer(digiPotValue);
+    digitalWrite(csPin1, HIGH);
+}
+
+void printADCreadings(int digits = 10)
+{
+    Serial.println();
+    Serial.print("digiPotValue: ");
+    Serial.print(digiPotValue);
+    Serial.print(",  current: ");
+    Serial.print(current, digits);
+    Serial.print(",  annode potential:");
+    Serial.print(anodePotential, digits);
+    Serial.print(",  Cell vol:");
+    Serial.print(cell_vol, digits);
+    Serial.print(", Measured scan rate:");
+    Serial.print(anodePotentialROC);
 }

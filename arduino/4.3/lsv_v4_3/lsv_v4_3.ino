@@ -172,7 +172,9 @@ ISR(TIMER1_OVF_vect)
     static double anodePotentialArray[digiPotAdjRate];
     static unsigned long timeArray[digiPotAdjRate];
 
-    TCNT1 = initTimerCnt;
+    TCCR1B = 0; //Disabling Timer
+    sei();      //Enabling interrupts
+    
     readADC();
 
     anodePotentialArray[irqcnt % digiPotAdjRate] = anodePotential;
@@ -186,6 +188,9 @@ ISR(TIMER1_OVF_vect)
         anodePotentialROC  = getROC(anodePotentialArray, timeArray); 
         adjustDigiPot == true;
     }
+    cli();
+    TCCR1B |= (1 << CS12) | (1 << CS10);
+    TCNT1 = initTimerCnt;
 }
 
 void readADC()
